@@ -238,5 +238,30 @@ function bigDistribute(uint256 projectId, address recipient, address recipient2,
 }
 
 
+function bigDistribute2NFT(uint256 projectId, uint256 tokenId, address recipient2, uint256 percentageToRecipient2) public onlyOwner {
+    require(projectId < projects.length, "Invalid projectId");
+
+    Project storage project = projects[projectId];
+    uint256 rifaBalance = usdtToken.balanceOf(address(project.rifa));
+    
+    require(rifaBalance > 0, "Rifa balance is zero");
+
+    // Obtener la dirección del propietario del NFT
+    address nftOwner = project.rifa.ownerOf(tokenId);
+
+    // Calcular los montos a transferir a cada destinatario
+    (uint256 transferAmountToRecipient, uint256 transferAmountToRecipient2) = calculateDistributeAmounts(projectId, percentageToRecipient2);
+
+    // Aprobar la transferencia de todo el saldo del contrato.
+    project.rifa.approveFactory(address(this), rifaBalance);
+
+    // Transferir el monto al propietario del NFT
+    usdtToken.transferFrom(address(project.rifa), nftOwner, transferAmountToRecipient);
+
+    // Transferir el monto al segundo destinatario
+    usdtToken.transferFrom(address(project.rifa), recipient2, transferAmountToRecipient2);
+}
+
+
     
 }
