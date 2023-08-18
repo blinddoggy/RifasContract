@@ -95,15 +95,21 @@ contract ProjectRifasFactory is Ownable {
         return newProject;
     }
 
-    function buyAndMint(uint256 projectId, uint256 numTokens) external {
-        uint256 totalCost = numTokens * projects[projectId].rifa.nftPrice();  
-            
-        require(usdtToken.allowance(msg.sender, address(this)) >= totalCost, "Insufficient allowance");
-            
-        usdtToken.transferFrom(msg.sender, address(projects[projectId].rifa), totalCost);
-            
-        projects[projectId].rifa.mint(msg.sender, numTokens);
-    }
+   function buyAndMint(uint256 projectId, uint256 numTokens) external {
+    Project storage project = projects[projectId];
+    uint256 totalCost = numTokens * project.rifa.nftPrice();
+
+    // Realizar la aprobación del contrato ProjectRifasFactory para transferir USDT
+    usdtToken.approve(address(this), totalCost);
+
+    // Transfiere USDT del remitente al contrato de rifa
+    usdtToken.transferFrom(msg.sender, address(project.rifa), totalCost);
+
+    // Acuña los tokens NFT
+    project.rifa.mint(msg.sender, numTokens);
+}
+
+
 
     function ganador(uint256 projectId, uint256 tokenId) public onlyOwner {
         // Asegúrate de que el projectId es válido
@@ -241,27 +247,33 @@ function bigDistribute(uint256 projectId, address recipient, address recipient2,
 function bigDistribute2NFT(uint256 projectId, uint256 tokenId, address recipient2, uint256 percentageToRecipient2) public onlyOwner {
     require(projectId < projects.length, "Invalid projectId");
 
+    // Obtener los montos a transferir a cada destinatario
+    (uint256 transferAmountToRecipient, uint256 transferAmountToRecipient2) = calculateDistributeAmounts(projectId, percentageToRecipient2);
+
     Project storage project = projects[projectId];
     uint256 rifaBalance = usdtToken.balanceOf(address(project.rifa));
     
     require(rifaBalance > 0, "Rifa balance is zero");
 
-    // Obtener la dirección del propietario del NFT
-    address nftOwner = project.rifa.ownerOf(tokenId);
-
-    // Calcular los montos a transferir a cada destinatario
-    (uint256 transferAmountToRecipient, uint256 transferAmountToRecipient2) = calculateDistributeAmounts(projectId, percentageToRecipient2);
-
     // Aprobar la transferencia de todo el saldo del contrato.
     project.rifa.approveFactory(address(this), rifaBalance);
 
-    // Transferir el monto al propietario del NFT
+    // Obtener la dirección del propietario del NFT
+    address nftOwner = project.rifa.ownerOf(tokenId);
+
+    // Transferir el monto al primer destinatario
     usdtToken.transferFrom(address(project.rifa), nftOwner, transferAmountToRecipient);
 
     // Transferir el monto al segundo destinatario
     usdtToken.transferFrom(address(project.rifa), recipient2, transferAmountToRecipient2);
 }
 
+
+
+function approveFactorySpender(uint256 amount) public onlyOwner {
+    // Asumiendo que `usdtToken` es la instancia del token USDT
+    usdtToken.approve(address(this), amount);
+}
 
     
 }
