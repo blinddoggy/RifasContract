@@ -8,23 +8,26 @@ import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 contract Rifas is ERC721, Ownable {
-    uint256 public currentTokenId = 0;
-    
+    uint256 public totalNFTSupply = 0; // Variable para rastrear el suministro total de tokens NFT
+        
     IERC20 public usdtToken;
     uint256 public nftPrice;
+    uint256 public maxNFTSupply; // Nuevo parámetro para rastrear el número máximo de NFT
+    uint256 public remainingNFTSupply; // Nuevo parámetro para rastrear el número de NFT restantes
+
 
     constructor(string memory name, string memory symbol, IERC20 _usdtToken, uint256 _nftPrice) ERC721(name, symbol) {
         usdtToken = _usdtToken;
         nftPrice = _nftPrice;
     }
     
-    function mint(address to, uint256 numTokens) public  {
-        uint256 newTokenId = currentTokenId;
+   function mint(address to, uint256 numTokens) public  {
         for(uint256 i = 0; i < numTokens; i++) {
-            _mint(to, newTokenId + i);
+            _mint(to, totalNFTSupply); // Usar totalNFTSupply como el tokenId
+            totalNFTSupply++; // Incrementar el suministro total
         }
-        currentTokenId += numTokens;
     }
+
 
     function approveTo(address operator, uint256 tokenId) public onlyOwner {
             _approve(operator, tokenId);
@@ -57,7 +60,8 @@ contract ProjectRifasFactory is Ownable {
         uint256 currentTokenId;
         uint256 date;
         uint256 profitPercentage;  
-        uint256 usdtBalance;  
+        uint256 usdtBalance;
+        uint256 maxTokensPerPurchase; // Nueva propiedad para limitar el número de tokens por compra
     }
 
 
@@ -76,7 +80,15 @@ contract ProjectRifasFactory is Ownable {
 
 
    
-  function createProject(string memory name, string memory symbol, uint256 numTokens, uint256 _nftPrice, uint256 date, uint256 _profitPercentage) public onlyOwner returns (Project memory) {
+  function createProject(
+    string memory name,
+    string memory symbol,
+    uint256 numTokens,
+    uint256 _nftPrice,
+    uint256 date,
+    uint256 _profitPercentage,
+    uint256 _maxTokensPerPurchase // Nuevo parámetro para establecer el límite de tokens por compra
+  ) public onlyOwner returns (Project memory) {
         require(_profitPercentage <= 100, "Percentage cannot be greater than 100");
         Rifas newRifa = new Rifas(name, symbol, usdtToken, _nftPrice);
         newRifa.mint(address(newRifa), numTokens);
@@ -88,15 +100,25 @@ contract ProjectRifasFactory is Ownable {
             mintedTokens: numTokens,
             currentTokenId: 0,
             date: date,
-            profitPercentage: _profitPercentage,  // Estableciendo el porcentaje de ganancia
-            usdtBalance: 0  // Agrega un valor inicial para usdtBalance
+            profitPercentage: _profitPercentage,
+            usdtBalance: 0,
+            maxTokensPerPurchase: _maxTokensPerPurchase // Establece el límite de tokens por compra
         });     
         projects.push(newProject);
         return newProject;
     }
 
-   function buyAndMint(uint256 projectId, uint256 numTokens) external {
+  function buyAndMint(uint256 projectId, uint256 numTokens) external {
     Project storage project = projects[projectId];
+    
+    // Verifica que el número de tokens esté dentro del límite permitido por compra
+    require(numTokens > 0, "Number of tokens must be greater than zero");
+    require(numTokens <= project.maxTokensPerPurchase, "Number of tokens exceeds the maximum allowed per purchase");
+
+    // Verifica que el totalSupply actual de la rifa más el número de tokens a comprar no supere un límite
+    require(project.rifa.totalNFTSupply() + numTokens <= 10, "Purchase would exceed the maximum total supply");
+
+    // Calcula el costo total de los tokens a comprar
     uint256 totalCost = numTokens * project.rifa.nftPrice();
 
     // Realizar la aprobación del contrato ProjectRifasFactory para transferir USDT
@@ -108,7 +130,6 @@ contract ProjectRifasFactory is Ownable {
     // Acuña los tokens NFT
     project.rifa.mint(msg.sender, numTokens);
 }
-
 
 
     function ganador(uint256 projectId, uint256 tokenId) public onlyOwner {
@@ -277,3 +298,4 @@ function approveFactorySpender(uint256 amount) public onlyOwner {
 
     
 }
+
