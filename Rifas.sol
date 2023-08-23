@@ -62,6 +62,9 @@ contract ProjectRifasFactory is Ownable {
         uint256 profitPercentage;  
         uint256 usdtBalance;
         uint256 maxTokensPerPurchase; // Nueva propiedad para limitar el número de tokens por compra
+        uint256 nftPrice;
+        string description;
+        bool hasBeenPlayed;
     }
 
 
@@ -69,12 +72,12 @@ contract ProjectRifasFactory is Ownable {
     Project[] public projects;
 
 
-    function getProjects() public view returns (Project[] memory) {
+   function getProjects() public view returns (Project[] memory) {
         Project[] memory updatedProjects = new Project[](projects.length);
-            for (uint256 i = 0; i < projects.length; i++) {
-                updatedProjects[i] = projects[i];
-                updatedProjects[i].usdtBalance = usdtToken.balanceOf(address(projects[i].rifa));
-            }
+        for (uint256 i = 0; i < projects.length; i++) {
+            updatedProjects[i] = projects[i];
+            updatedProjects[i].usdtBalance = usdtToken.balanceOf(address(projects[i].rifa));
+        }
         return updatedProjects;
     }
 
@@ -87,7 +90,8 @@ contract ProjectRifasFactory is Ownable {
     uint256 _nftPrice,
     uint256 date,
     uint256 _profitPercentage,
-    uint256 _maxTokensPerPurchase // Nuevo parámetro para establecer el límite de tokens por compra
+    uint256 _maxTokensPerPurchase, // Nuevo parámetro para establecer el límite de tokens por compra
+    string memory _description // Añadir el parámetro de la descripción
   ) public onlyOwner returns (Project memory) {
         require(_profitPercentage <= 100, "Percentage cannot be greater than 100");
         Rifas newRifa = new Rifas(name, symbol, usdtToken, _nftPrice);
@@ -102,7 +106,10 @@ contract ProjectRifasFactory is Ownable {
             date: date,
             profitPercentage: _profitPercentage,
             usdtBalance: 0,
-            maxTokensPerPurchase: _maxTokensPerPurchase // Establece el límite de tokens por compra
+            maxTokensPerPurchase: _maxTokensPerPurchase, // Establece el límite de tokens por compra
+            nftPrice:_nftPrice,
+            description: _description,
+            hasBeenPlayed: false
         });     
         projects.push(newProject);
         return newProject;
@@ -296,6 +303,12 @@ function approveFactorySpender(uint256 amount) public onlyOwner {
     usdtToken.approve(address(this), amount);
 }
 
-    
+
+function setRifaPlayed(uint256 projectId) public onlyOwner {
+    require(projectId < projects.length, "Invalid projectId");
+    projects[projectId].hasBeenPlayed = true;
 }
 
+
+    
+}
