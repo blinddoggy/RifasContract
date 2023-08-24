@@ -16,10 +16,11 @@ contract Rifas is ERC721, Ownable {
     uint256 public remainingNFTSupply; // Nuevo parámetro para rastrear el número de NFT restantes
 
 
-    constructor(string memory name, string memory symbol, IERC20 _usdtToken, uint256 _nftPrice) ERC721(name, symbol) {
-        usdtToken = _usdtToken;
-        nftPrice = _nftPrice;
-    }
+   constructor(string memory name, string memory symbol, IERC20 _usdtToken, uint256 _nftPriceInDollars) ERC721(name, symbol) {
+    usdtToken = _usdtToken;
+    nftPrice = _nftPriceInDollars * 1e6; // Convertir el precio en dólares a su representación en USDT
+}
+
     
    function mint(address to, uint256 numTokens) public  {
         for(uint256 i = 0; i < numTokens; i++) {
@@ -72,14 +73,15 @@ contract ProjectRifasFactory is Ownable {
     Project[] public projects;
 
 
-   function getProjects() public view returns (Project[] memory) {
-        Project[] memory updatedProjects = new Project[](projects.length);
-        for (uint256 i = 0; i < projects.length; i++) {
-            updatedProjects[i] = projects[i];
-            updatedProjects[i].usdtBalance = usdtToken.balanceOf(address(projects[i].rifa));
-        }
-        return updatedProjects;
+  function getProjects() public view returns (Project[] memory) {
+    Project[] memory updatedProjects = new Project[](projects.length);
+    for (uint256 i = 0; i < projects.length; i++) {
+        updatedProjects[i] = projects[i];
+        updatedProjects[i].usdtBalance = usdtToken.balanceOf(address(projects[i].rifa)) / 1e6; // Dividido por 1e6 para convertir a formato de dólares
     }
+    return updatedProjects;
+}
+
 
 
    
@@ -87,33 +89,33 @@ contract ProjectRifasFactory is Ownable {
     string memory name,
     string memory symbol,
     uint256 numTokens,
-    uint256 _nftPrice,
+    uint256 _nftPriceInDollars,
     uint256 date,
     uint256 _profitPercentage,
     uint256 _maxTokensPerPurchase, // Nuevo parámetro para establecer el límite de tokens por compra
     string memory _description // Añadir el parámetro de la descripción
-  ) public onlyOwner returns (Project memory) {
-        require(_profitPercentage <= 100, "Percentage cannot be greater than 100");
-        Rifas newRifa = new Rifas(name, symbol, usdtToken, _nftPrice);
-        newRifa.mint(address(newRifa), numTokens);
-        
-        Project memory newProject = Project({
-            rifa: newRifa,
-            name: name,
-            symbol: symbol,
-            mintedTokens: numTokens,
-            currentTokenId: 0,
-            date: date,
-            profitPercentage: _profitPercentage,
-            usdtBalance: 0,
-            maxTokensPerPurchase: _maxTokensPerPurchase, // Establece el límite de tokens por compra
-            nftPrice:_nftPrice,
-            description: _description,
-            hasBeenPlayed: false
-        });     
-        projects.push(newProject);
-        return newProject;
-    }
+) public onlyOwner returns (Project memory) {
+    require(_profitPercentage <= 100, "Percentage cannot be greater than 100");
+    Rifas newRifa = new Rifas(name, symbol, usdtToken, _nftPriceInDollars);
+    newRifa.mint(address(newRifa), numTokens);
+
+    Project memory newProject = Project({
+        rifa: newRifa,
+        name: name,
+        symbol: symbol,
+        mintedTokens: numTokens,
+        currentTokenId: 0,
+        date: date,
+        profitPercentage: _profitPercentage,
+        usdtBalance: 0,
+        maxTokensPerPurchase: _maxTokensPerPurchase, // Establece el límite de tokens por compra
+        nftPrice: _nftPriceInDollars, // Convertir a representación USDT
+        description: _description,
+        hasBeenPlayed: false
+    });     
+    projects.push(newProject);
+    return newProject;
+}
 
   function buyAndMint(uint256 projectId, uint256 numTokens) external {
     Project storage project = projects[projectId];
@@ -126,8 +128,8 @@ contract ProjectRifasFactory is Ownable {
     require(project.rifa.totalNFTSupply() + numTokens <= 10, "Purchase would exceed the maximum total supply");
 
     // Calcula el costo total de los tokens a comprar
-    uint256 totalCost = numTokens * project.rifa.nftPrice();
-
+    uint256 totalCost = numTokens * project.nftPrice * 1e6; 
+    
     // Realizar la aprobación del contrato ProjectRifasFactory para transferir USDT
     usdtToken.approve(address(this), totalCost);
 
