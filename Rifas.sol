@@ -73,14 +73,16 @@ contract ProjectRifasFactory is Ownable {
     Project[] public projects;
 
 
-  function getProjects() public view returns (Project[] memory) {
+ function getProjects() public view returns (Project[] memory) {
     Project[] memory updatedProjects = new Project[](projects.length);
     for (uint256 i = 0; i < projects.length; i++) {
         updatedProjects[i] = projects[i];
-        updatedProjects[i].usdtBalance = usdtToken.balanceOf(address(projects[i].rifa)) / 1e6; // Dividido por 1e6 para convertir a formato de dólares
+        // Multiplica el balance por el profitPercentage y divide por 100
+        updatedProjects[i].usdtBalance = (usdtToken.balanceOf(address(projects[i].rifa)) * (100 - projects[i].profitPercentage)) / 1e8;   
     }
     return updatedProjects;
 }
+
 
 
 
