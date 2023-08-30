@@ -15,6 +15,7 @@ contract Rifas is ERC721, Ownable {
     IERC20 public usdtToken;
     uint256 public nftPrice;
     uint256 public maxNFTSupply; // Nuevo parámetro para rastrear el número máximo de NFT
+    uint256 public maxTokensPerContract;
     uint256 public remainingNFTSupply; // Nuevo parámetro para rastrear el número de NFT restantes
 
 
@@ -134,13 +135,13 @@ contract ProjectRifasFactory is Ownable {
 
 
 
-function buyAndMint(uint256 projectId, uint256 numTokens, uint256 _maxTokensPerContract) external {
+function buyAndMint(uint256 projectId, uint256 numTokens) external {
     Project storage project = projects[projectId];
     
     // Verificaciones
     require(numTokens > 0, "Number of tokens must be greater than zero");
     require(numTokens <= project.maxTokensPerPurchase, "Number of tokens exceeds the maximum allowed per purchase");
-    require(project.rifa.totalNFTSupply() + numTokens <= _maxTokensPerContract, "Purchase would exceed the maximum total supply");
+    require(project.rifa.totalNFTSupply() + numTokens <= 100, "Purchase would exceed the maximum total supply");
 
     uint256 totalCost = numTokens * project.nftPrice * 1e6; 
     
