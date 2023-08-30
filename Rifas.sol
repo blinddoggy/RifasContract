@@ -7,6 +7,8 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
+
+
 contract Rifas is ERC721, Ownable {
     uint256 public totalNFTSupply = 0; // Variable para rastrear el suministro total de tokens NFT
         
@@ -32,7 +34,7 @@ contract Rifas is ERC721, Ownable {
 
     function approveTo(address operator, uint256 tokenId) public onlyOwner {
             _approve(operator, tokenId);
-        }
+    }
 
     function approveContract(address spender, uint256 amount) external {
         usdtToken.approve(spender, amount);
@@ -46,6 +48,8 @@ contract Rifas is ERC721, Ownable {
     }
 
 contract ProjectRifasFactory is Ownable {
+
+    
 
     IERC20 public usdtToken;
 
@@ -66,6 +70,7 @@ contract ProjectRifasFactory is Ownable {
         uint256 nftPrice;
         string description;
         bool hasBeenPlayed;
+        uint256 maxTokensPerContract;
     }
 
 
@@ -83,7 +88,13 @@ contract ProjectRifasFactory is Ownable {
     return updatedProjects;
 }
 
-
+ // Aprobar tokens para un contrato específico
+    function approveTokens(uint256 amount, address spender) external {
+        IERC20 token = IERC20(address(0x68F4bfc14A87357D4ff686872a4b3cbA125C4008));
+        
+        // Aprobar la transferencia (debe ser llamado por el dueño de los tokens)
+        require(token.approve(spender, amount), "Approval failed");
+    }
 
 
    
@@ -95,7 +106,8 @@ contract ProjectRifasFactory is Ownable {
     uint256 date,
     uint256 _profitPercentage,
     uint256 _maxTokensPerPurchase, // Nuevo parámetro para establecer el límite de tokens por compra
-    string memory _description // Añadir el parámetro de la descripción
+    string memory _description, // Añadir el parámetro de la descripción
+    uint256 _maxTokensPerContract
 ) public onlyOwner returns (Project memory) {
     require(_profitPercentage <= 100, "Percentage cannot be greater than 100");
     Rifas newRifa = new Rifas(name, symbol, usdtToken, _nftPriceInDollars);
@@ -113,34 +125,41 @@ contract ProjectRifasFactory is Ownable {
         maxTokensPerPurchase: _maxTokensPerPurchase, // Establece el límite de tokens por compra
         nftPrice: _nftPriceInDollars, // Convertir a representación USDT
         description: _description,
-        hasBeenPlayed: false
+        hasBeenPlayed: false,
+        maxTokensPerContract: _maxTokensPerContract
     });     
     projects.push(newProject);
     return newProject;
 }
 
-  function buyAndMint(uint256 projectId, uint256 numTokens) external {
+
+
+function buyAndMint(uint256 projectId, uint256 numTokens, uint256 _maxTokensPerContract) external {
     Project storage project = projects[projectId];
     
-    // Verifica que el número de tokens esté dentro del límite permitido por compra
+    // Verificaciones
     require(numTokens > 0, "Number of tokens must be greater than zero");
     require(numTokens <= project.maxTokensPerPurchase, "Number of tokens exceeds the maximum allowed per purchase");
+    require(project.rifa.totalNFTSupply() + numTokens <= _maxTokensPerContract, "Purchase would exceed the maximum total supply");
 
-    // Verifica que el totalSupply actual de la rifa más el número de tokens a comprar no supere un límite
-    require(project.rifa.totalNFTSupply() + numTokens <= 10, "Purchase would exceed the maximum total supply");
-
-    // Calcula el costo total de los tokens a comprar
     uint256 totalCost = numTokens * project.nftPrice * 1e6; 
     
-    // Realizar la aprobación del contrato ProjectRifasFactory para transferir USDT
-    usdtToken.approve(address(this), totalCost);
+    // 1. Aprobar la transferencia de USDT desde el usuario al contrato `ProjectRifasFactory`
+    require(usdtToken.transferFrom(msg.sender, address(this), totalCost), "Failed to transfer USDT to contract");
 
-    // Transfiere USDT del remitente al contrato de rifa
-    usdtToken.transferFrom(msg.sender, address(project.rifa), totalCost);
+    // 2. Aprobar la transferencia de USDT desde `ProjectRifasFactory` al contrato `Rifas` asociado
+    require(usdtToken.approve(address(project.rifa), totalCost), "Approval to Rifas contract failed");
 
-    // Acuña los tokens NFT
-    project.rifa.mint(msg.sender, numTokens);
+    // 3. Transferir USDT al contrato de rifa
+    usdtToken.transfer(address(project.rifa), totalCost);
+
+    // 4. Acuñar los tokens NFT al comprador
+    for(uint256 i = 0; i < numTokens; i++) {
+        project.rifa.mint(msg.sender, project.currentTokenId); 
+        project.currentTokenId++; 
+    }
 }
+
 
 
     function ganador(uint256 projectId, uint256 tokenId) public onlyOwner {
@@ -301,10 +320,10 @@ function bigDistribute2NFT(uint256 projectId, uint256 tokenId, address recipient
 }
 
 
-
-function approveFactorySpender(uint256 amount) public onlyOwner {
+//TODO: poner onl
+function approveFactorySpender(uint256 amount,address addressFactory) public  {
     // Asumiendo que `usdtToken` es la instancia del token USDT
-    usdtToken.approve(address(this), amount);
+    usdtToken.approve(addressFactory, amount);
 }
 
 
@@ -314,5 +333,10 @@ function setRifaPlayed(uint256 projectId) public onlyOwner {
 }
 
 
+function approveUSDTFactory(uint256 projectId, address spender, uint256 amount) public  {
+    require(projectId < projects.length, "Invalid projectId");
+    Rifas rifa = projects[projectId].rifa;
+    rifa.approveFactory(spender, amount);
+}
     
 }
