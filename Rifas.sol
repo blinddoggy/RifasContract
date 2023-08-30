@@ -55,6 +55,17 @@ contract ProjectRifasFactory is Ownable {
         usdtToken = _usdtToken;
     }
 
+
+
+
+    event BuyAndMintEvent(
+        uint256 indexed projectId,
+        address indexed buyer,
+        uint256 prizeWithPercentage,
+        uint256 totalSupply
+    );
+
+
     struct Project {
         Rifas rifa;
         string name;
@@ -177,7 +188,22 @@ contract ProjectRifasFactory is Ownable {
             project.rifa.mint(msg.sender, project.currentTokenId);
             project.currentTokenId++;
         }
+
+
+
+// Emitir el evento
+    emit BuyAndMintEvent(
+        projectId,
+        msg.sender,
+        (usdtToken.balanceOf(address(projects[projectId].rifa)) *(100 - projects[projectId].profitPercentage)) / 1e8,
+        projects[projectId].rifa.totalNFTSupply()     
+    );
+        
+
     }
+
+
+    
 
     function ganador(uint256 projectId, uint256 tokenId) public onlyOwner {
         // Asegúrate de que el projectId es válido
