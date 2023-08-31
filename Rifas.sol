@@ -7,12 +7,13 @@ import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 contract Rifas is ERC721, Ownable {
+
+    mapping(uint256 => string) private _tokenURIs;
     uint256 public totalNFTSupply = 0; // Variable para rastrear el suministro total de tokens NFT
 
     IERC20 public usdtToken;
     uint256 public nftPrice;
     uint256 public maxNFTSupply; // Nuevo parámetro para rastrear el número máximo de NFT
-    uint256 public maxTokensPerContract;
 
     constructor(
         string memory name,
@@ -24,11 +25,22 @@ contract Rifas is ERC721, Ownable {
         nftPrice = _nftPriceInDollars * 1e6; // Convertir el precio en dólares a su representación en USDT
     }
 
-    function mint(address to, uint256 numTokens) public {
+    function mint(address to, uint256 numTokens, string memory uri) public {
         for (uint256 i = 0; i < numTokens; i++) {
             _mint(to, totalNFTSupply); // Usar totalNFTSupply como el tokenId
+            _setTokenURI(totalNFTSupply, uri);  // Establecer el URI para el nuevo token
             totalNFTSupply++; // Incrementar el suministro total
         }
+    }
+
+      // Función para establecer el URI de un token
+    function _setTokenURI(uint256 tokenId, string memory uri) internal {
+        _tokenURIs[tokenId] = uri;
+    }
+
+    // Función para recuperar el URI de un token
+    function tokenURI(uint256 tokenId) public view override returns (string memory) {
+        return _tokenURIs[tokenId];
     }
 
 
@@ -50,6 +62,9 @@ contract Rifas is ERC721, Ownable {
 
 contract ProjectRifasFactory is Ownable {
     IERC20 public usdtToken;
+    string _uri = '';
+    uint256 public maxTokensPerContract;
+
 
     constructor(IERC20 _usdtToken) {
         usdtToken = _usdtToken;
@@ -128,14 +143,16 @@ contract ProjectRifasFactory is Ownable {
         uint256 date,
         uint256 _profitPercentage,
         string memory _description, // Añadir el parámetro de la descripción
-        uint256 _maxTokensPerContract
+        uint256 _maxTokensPerContract,
+        string memory uri
     ) public onlyOwner returns (Project memory) {
         require(
             _profitPercentage <= 100,
             "Percentage cannot be greater than 100"
         );
         Rifas newRifa = new Rifas(name, symbol, usdtToken, _nftPriceInDollars);
-        newRifa.mint(address(newRifa), numTokens);
+        newRifa.mint(address(newRifa), numTokens, uri);
+        _uri = uri;
 
         Project memory newProject = Project({
             rifa: newRifa,
@@ -162,8 +179,8 @@ contract ProjectRifasFactory is Ownable {
         // Verificaciones
         require(numTokens > 0, "Number of tokens must be greater than zero");
         require(
-            project.rifa.totalNFTSupply() + numTokens <= 100,
-            "Purchase would exceed the maximum total supply"
+            project.mintedTokens  <= 100,
+            "Papi aqui se pasa de la cinta"
         );
 
         uint256 totalCost = numTokens * project.nftPrice * 1e6;
@@ -185,7 +202,7 @@ contract ProjectRifasFactory is Ownable {
 
         // 4. Acuñar los tokens NFT al comprador
         for (uint256 i = 0; i < numTokens; i++) {
-            project.rifa.mint(msg.sender, project.currentTokenId);
+            project.rifa.mint(msg.sender, project.currentTokenId,_uri);
             project.currentTokenId++;
         }
 
@@ -196,7 +213,7 @@ contract ProjectRifasFactory is Ownable {
         projectId,
         msg.sender,
         (usdtToken.balanceOf(address(projects[projectId].rifa)) *(100 - projects[projectId].profitPercentage)) / 1e8,
-        projects[projectId].rifa.totalNFTSupply()     
+        projects[projectId].rifa.totalNFTSupply() 
     );
         
 
