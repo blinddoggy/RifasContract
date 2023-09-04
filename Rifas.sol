@@ -25,6 +25,7 @@ contract RifaNFT is ERC721URIStorage, Ownable {
         uint256 saldoFinal;
         uint256 fechaDeJuego;
         string descripcion;
+        
     }
 
     RifaInfo public rifa;
@@ -51,7 +52,7 @@ contract RifaNFT is ERC721URIStorage, Ownable {
             tokensRestantes: maxBoletas,
             gananciaEmpresa: gananciaEmpresa,
             jugada: false,
-            saldoFinal: rifa.saldoFinal,
+            saldoFinal: rifa.saldoFinal.mul(100 - gananciaEmpresa).div(1e8),
             fechaDeJuego: fechaDeJuego,
             descripcion: descripcion
         });
@@ -65,9 +66,15 @@ contract RifaNFT is ERC721URIStorage, Ownable {
         rifa.jugada = estado;
     }
 
-     function crearBoleta(string memory uri, uint256 numTokens2Mint) external onlyOwner {
+    function crearBoleta(string memory uri, uint256 numTokens2Mint)
+        external
+        onlyOwner
+    {
         // Agregado un mensaje de error para el require
-        require(rifa.tokensMinteados.add(numTokens2Mint) <= rifa.maxBoletas, "Se superaria el maximo de boletas");
+        require(
+            rifa.tokensMinteados.add(numTokens2Mint) <= rifa.maxBoletas,
+            "Se superaria el maximo de boletas"
+        );
 
         for (uint256 i = 0; i < numTokens2Mint; i++) {
             _mint(address(this), nextTokenId);
@@ -79,28 +86,44 @@ contract RifaNFT is ERC721URIStorage, Ownable {
         }
     }
 
-     function comprarBoleta(uint256 tokenId) external {
+    function comprarBoleta(uint256 tokenId) external {
         // Agregados mensajes de error para los require
-        require(tokenId <= rifa.maxBoletas, "El tokenId supera el maximo de boletas permitido");
+        require(
+            tokenId <= rifa.maxBoletas,
+            "El tokenId supera el maximo de boletas permitido"
+        );
         require(tokenId > 0, "El tokenId debe ser mayor que cero");
-        require(tokenAvailable[tokenId], "No existe o ya no esta disponible esa boleta");
+        require(
+            tokenAvailable[tokenId],
+            "No existe o ya no esta disponible esa boleta"
+        );
 
         uint256 amount = rifa.precio * 1e6; // Precio multiplicado para tener 6 decimales
-        require(usdt.balanceOf(msg.sender) >= amount, "No tienes suficientes USDT");
+        require(
+            usdt.balanceOf(msg.sender) >= amount,
+            "No tienes suficientes USDT"
+        );
 
         // Verificar si el usuario ha aprobado la transferencia
-        require(usdt.allowance(msg.sender, address(this)) >= amount, "Aprobacion de USDT insuficiente");
+        require(
+            usdt.allowance(msg.sender, address(this)) >= amount,
+            "Aprobacion de USDT insuficiente"
+        );
 
-        bool transferSuccess = usdt.transferFrom(msg.sender, address(this), amount);
+        bool transferSuccess = usdt.transferFrom(
+            msg.sender,
+            address(this),
+            amount
+        );
         require(transferSuccess, "Transferencia de USDT fallida");
 
         rifa.saldoFinal = rifa.saldoFinal.add(amount);
-        
+
         // Transferencia del NFT al comprador
         _transfer(address(this), msg.sender, tokenId);
         tokenAvailable[tokenId] = false; // Actualizar el estado del token a "no disponible"
-        
-        rifa.tokensComprados = rifa.tokensComprados + 1;//variable tokens comprados
+
+        rifa.tokensComprados = rifa.tokensComprados + 1; //variable tokens comprados
 
         emit comprarEvents(msg.sender, rifa.saldoFinal, rifa.tokensMinteados);
     }
