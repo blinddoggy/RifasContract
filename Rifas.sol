@@ -177,6 +177,37 @@ contract RifaNFT is ERC721URIStorage, Ownable {
         return tokensVendidosArray;
     }
 
+    function getRifa() public view returns (
+    string memory nombre,
+    string memory simbolo,
+    uint256 precio,
+    uint256 maxBoletas,
+    uint256 tokensMinteados,
+    uint256 tokensComprados,
+    uint256 tokensRestantes,
+    uint256 gananciaEmpresa,
+    bool jugada,
+    uint256 saldoFinal,
+    uint256 fechaDeJuego,
+    string memory descripcion
+) {
+    return (
+        rifa.nombre,
+        rifa.simbolo,
+        rifa.precio,
+        rifa.maxBoletas,
+        rifa.tokensMinteados,
+        rifa.tokensComprados,
+        rifa.tokensRestantes,
+        rifa.gananciaEmpresa,
+        rifa.jugada,
+        rifa.saldoFinal,
+        rifa.fechaDeJuego,
+        rifa.descripcion
+    );
+}
+
+
     event comprarEvents(
         address indexed buyer,
         uint256 prizeWithPercentage,
