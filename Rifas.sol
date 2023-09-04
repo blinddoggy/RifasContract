@@ -51,7 +51,7 @@ contract RifaNFT is ERC721URIStorage, Ownable {
             tokensRestantes: maxBoletas,
             gananciaEmpresa: gananciaEmpresa,
             jugada: false,
-            saldoFinal: 0,
+            saldoFinal: rifa.saldoFinal,
             fechaDeJuego: fechaDeJuego,
             descripcion: descripcion
         });
@@ -94,8 +94,8 @@ contract RifaNFT is ERC721URIStorage, Ownable {
         bool transferSuccess = usdt.transferFrom(msg.sender, address(this), amount);
         require(transferSuccess, "Transferencia de USDT fallida");
 
-        // ... (El resto del código, como cálculos de ganancia y actualización de saldo, permanecen igual)
-
+        rifa.saldoFinal = rifa.saldoFinal.add(amount);
+        
         // Transferencia del NFT al comprador
         _transfer(address(this), msg.sender, tokenId);
         tokenAvailable[tokenId] = false; // Actualizar el estado del token a "no disponible"
