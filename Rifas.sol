@@ -11,6 +11,8 @@ contract RifaNFT is ERC721URIStorage, Ownable {
 
     IERC20 public usdt;
     mapping(uint256 => bool) public tokenAvailable;
+    mapping(uint256 => bool) public tokenVendido;
+    uint256[] public tokensVendidosArray;
 
     struct RifaInfo {
         string nombre;
@@ -25,7 +27,6 @@ contract RifaNFT is ERC721URIStorage, Ownable {
         uint256 saldoFinal;
         uint256 fechaDeJuego;
         string descripcion;
-        
     }
 
     RifaInfo public rifa;
@@ -116,8 +117,11 @@ contract RifaNFT is ERC721URIStorage, Ownable {
             amount
         );
         require(transferSuccess, "Transferencia de USDT fallida");
-
+        //actualiza saldo final
         rifa.saldoFinal = rifa.saldoFinal.add(amount);
+        //mapping de tokens vendidos
+        tokenVendido[tokenId] = true;
+        tokensVendidosArray.push(tokenId);
 
         // Transferencia del NFT al comprador
         _transfer(address(this), msg.sender, tokenId);
@@ -167,6 +171,10 @@ contract RifaNFT is ERC721URIStorage, Ownable {
             ),
             "Failed to transfer to second recipient"
         );
+    }
+
+    function getTokensVendidos() public view returns (uint256[] memory) {
+        return tokensVendidosArray;
     }
 
     event comprarEvents(
