@@ -10,6 +10,7 @@ contract RifaNFT is ERC721URIStorage, Ownable {
     using SafeMath for uint256;
 
     IERC20 public usdt;
+    mapping(uint256 => bool) public tokenAvailable;
 
     struct RifaInfo {
         string nombre;
@@ -46,40 +47,61 @@ contract RifaNFT is ERC721URIStorage, Ownable {
             tokensRestantes: maxBoletas,
             gananciaEmpresa: gananciaEmpresa,
             jugada: false,
-            saldoFinal:0
+            saldoFinal: 0
         });
+
+        for (uint256 i = 1; i <= maxBoletas; i++) {
+            tokenAvailable[i] = true;
+        }
     }
 
-    function crearBoleta(string memory uri) external onlyOwner {
+    event comprarEvents(
+        address indexed buyer,
+        uint256 prizeWithPercentage,
+        uint256 totalSupply
+    );
+
+    function crearBoleta(string memory uri, uint256 numTokens2Mint)
+        external
+        onlyOwner
+    {
         require(
-            rifa.tokensMinteados < rifa.maxBoletas,
-            "Se han alcanzado el mAximo de boletas"
+            rifa.tokensMinteados.add(numTokens2Mint) <= rifa.maxBoletas,
+            "Se superaria el maximo de boletas"
         );
-        _mint(address(this), nextTokenId);
-        _setTokenURI(nextTokenId, uri);
-        nextTokenId = nextTokenId.add(1);
-        rifa.tokensMinteados = rifa.tokensMinteados.add(1);
-        rifa.tokensRestantes = rifa.tokensRestantes.sub(1);
+
+        for (uint256 i = 0; i < numTokens2Mint; i++) {
+            _mint(address(this), nextTokenId);
+            _setTokenURI(nextTokenId, uri);
+            tokenAvailable[nextTokenId] = true;
+            nextTokenId = nextTokenId.add(1);
+            rifa.tokensMinteados = rifa.tokensMinteados.add(1);
+            rifa.tokensRestantes = rifa.tokensRestantes.sub(1);
+        }
     }
 
-    function comprarBoleta() external {
-        require(rifa.tokensRestantes > 0, "No hay boletas disponibles");
+    function comprarBoleta(uint256 tokenId) external {
+        require(
+            tokenAvailable[tokenId],
+            "No existe o ya no esta disponible esa boleta"
+        );
 
-        uint256 amount = rifa.precio;
+        uint256 amount = rifa.precio * 1e6;
         require(
             usdt.transferFrom(msg.sender, address(this), amount),
             "Transferencia de USDT fallida"
         );
 
-        // Actualizar el saldo final después de deducir la ganancia de la empresa.
         uint256 ganancia = amount.mul(rifa.gananciaEmpresa).div(100);
         rifa.saldoFinal = rifa.saldoFinal.add(amount).sub(ganancia);
 
         rifa.tokensComprados = rifa.tokensComprados.add(1);
         rifa.tokensRestantes = rifa.tokensRestantes.sub(1);
 
-        // Asumimos que nextTokenId siempre es al menos 1 y ha sido incrementado después del mint.
-        _transfer(address(this), msg.sender, nextTokenId.sub(1));
+        _transfer(address(this), msg.sender, tokenId);
+        tokenAvailable[tokenId] = false;
+
+        emit comprarEvents(msg.sender, rifa.saldoFinal, rifa.tokensMinteados);
     }
 
     function bigDistribute2NFT(
@@ -98,7 +120,10 @@ contract RifaNFT is ERC721URIStorage, Ownable {
             .mul(percentageToRecipient2)
             .div(100);
 
-        usdt.approve(address(this), 100000000000000000);
+        require(
+            usdt.approve(address(this), 100000000000000000),
+            "Failed to approve"
+        );
 
         address nftOwner = ownerOf(tokenId);
 
