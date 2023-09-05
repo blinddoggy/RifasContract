@@ -30,7 +30,7 @@ contract RifaNFT is ERC721URIStorage, Ownable {
     }
 
     RifaInfo public rifa;
-    uint256 public nextTokenId = 1;
+    uint256 public nextTokenId = 0;
 
     constructor(
         address _usdtAddress,
@@ -53,7 +53,7 @@ contract RifaNFT is ERC721URIStorage, Ownable {
             tokensRestantes: maxBoletas,
             gananciaEmpresa: gananciaEmpresa,
             jugada: false,
-            saldoFinal: rifa.saldoFinal.mul(100 - gananciaEmpresa).div(1e8),
+            saldoFinal: (rifa.saldoFinal.mul(100 - gananciaEmpresa).div(100))/1e6,
             fechaDeJuego: fechaDeJuego,
             descripcion: descripcion
         });
@@ -129,7 +129,7 @@ contract RifaNFT is ERC721URIStorage, Ownable {
 
         rifa.tokensComprados = rifa.tokensComprados + 1; //variable tokens comprados
 
-        emit comprarEvents(msg.sender, rifa.saldoFinal, rifa.tokensMinteados);
+        emit comprarEvents(msg.sender, tokenId, rifa.saldoFinal);
     }
 
     function ganador(
@@ -177,40 +177,43 @@ contract RifaNFT is ERC721URIStorage, Ownable {
         return tokensVendidosArray;
     }
 
-    function getRifa() public view returns (
-    string memory nombre,
-    string memory simbolo,
-    uint256 precio,
-    uint256 maxBoletas,
-    uint256 tokensMinteados,
-    uint256 tokensComprados,
-    uint256 tokensRestantes,
-    uint256 gananciaEmpresa,
-    bool jugada,
-    uint256 saldoFinal,
-    uint256 fechaDeJuego,
-    string memory descripcion
-) {
-    return (
-        rifa.nombre,
-        rifa.simbolo,
-        rifa.precio,
-        rifa.maxBoletas,
-        rifa.tokensMinteados,
-        rifa.tokensComprados,
-        rifa.tokensRestantes,
-        rifa.gananciaEmpresa,
-        rifa.jugada,
-        rifa.saldoFinal,
-        rifa.fechaDeJuego,
-        rifa.descripcion
-    );
-}
-
+    function getRifa()
+        public
+        view
+        returns (
+            string memory nombre,
+            string memory simbolo,
+            uint256 precio,
+            uint256 maxBoletas,
+            uint256 tokensMinteados,
+            uint256 tokensComprados,
+            uint256 tokensRestantes,
+            uint256 gananciaEmpresa,
+            bool jugada,
+            uint256 saldoFinal,
+            uint256 fechaDeJuego,
+            string memory descripcion
+        )
+    {
+        return (
+            rifa.nombre,
+            rifa.simbolo,
+            rifa.precio,
+            rifa.maxBoletas,
+            rifa.tokensMinteados,
+            rifa.tokensComprados,
+            rifa.tokensRestantes,
+            rifa.gananciaEmpresa,
+            rifa.jugada,
+            rifa.saldoFinal,
+            rifa.fechaDeJuego,
+            rifa.descripcion
+        );
+    }
 
     event comprarEvents(
         address indexed buyer,
-        uint256 prizeWithPercentage,
-        uint256 totalSupply
+        uint256 tokenId,
+        uint256 saldoFinal
     );
 }
