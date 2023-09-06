@@ -53,7 +53,7 @@ contract RifaNFT is ERC721URIStorage, Ownable {
             tokensRestantes: maxBoletas,
             gananciaEmpresa: gananciaEmpresa,
             jugada: false,
-            saldoFinal: (rifa.saldoFinal.mul(100 - gananciaEmpresa).div(100))/1e6,
+            saldoFinal: rifa.saldoFinal,
             fechaDeJuego: fechaDeJuego,
             descripcion: descripcion
         });
@@ -93,7 +93,6 @@ contract RifaNFT is ERC721URIStorage, Ownable {
             tokenId <= rifa.maxBoletas,
             "El tokenId supera el maximo de boletas permitido"
         );
-        require(tokenId > 0, "El tokenId debe ser mayor que cero");
         require(
             tokenAvailable[tokenId],
             "No existe o ya no esta disponible esa boleta"
@@ -202,10 +201,10 @@ contract RifaNFT is ERC721URIStorage, Ownable {
             rifa.maxBoletas,
             rifa.tokensMinteados,
             rifa.tokensComprados,
-            rifa.tokensRestantes,
+            rifa.tokensMinteados-tokensComprados,
             rifa.gananciaEmpresa,
             rifa.jugada,
-            rifa.saldoFinal,
+            rifa.saldoFinal*(100-rifa.gananciaEmpresa)/1e8,
             rifa.fechaDeJuego,
             rifa.descripcion
         );
