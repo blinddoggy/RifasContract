@@ -128,7 +128,11 @@ contract RifaNFT is ERC721URIStorage, Ownable {
 
         rifa.tokensComprados = rifa.tokensComprados + 1; //variable tokens comprados
 
-        emit comprarEvents(msg.sender, tokenId, rifa.saldoFinal);
+        emit comprarEvents(
+            msg.sender,
+            tokenId,
+            (rifa.saldoFinal * (100 - rifa.gananciaEmpresa)) / 1e8
+        );
     }
 
     function ganador(
@@ -201,13 +205,17 @@ contract RifaNFT is ERC721URIStorage, Ownable {
             rifa.maxBoletas,
             rifa.tokensMinteados,
             rifa.tokensComprados,
-            rifa.tokensMinteados-tokensComprados,
+            rifa.tokensMinteados - tokensComprados,
             rifa.gananciaEmpresa,
             rifa.jugada,
-            rifa.saldoFinal*(100-rifa.gananciaEmpresa)/1e8,
+            (rifa.saldoFinal * (100 - rifa.gananciaEmpresa)) / 1e8,
             rifa.fechaDeJuego,
             rifa.descripcion
         );
+    }
+
+    function getUserAllowance() external view returns (uint256) {
+        return usdt.allowance(msg.sender, address(this));
     }
 
     event comprarEvents(
