@@ -1,18 +1,24 @@
-// SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+// SPDX-License-Identifier: GPL-3.0
+
+pragma solidity >=0.8.2 <0.9.0;
+pragma experimental ABIEncoderV2;
 
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
+import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
 contract RifaNFT is ERC721URIStorage, Ownable {
     using SafeMath for uint256;
+    using ECDSA for bytes32;
 
     IERC20 public usdt;
     mapping(uint256 => bool) public tokenAvailable;
     mapping(uint256 => bool) public tokenVendido;
     uint256[] public tokensVendidosArray;
+    mapping(address => uint256) public nonces;
+    address public creadorDelContrato;
 
     struct RifaInfo {
         string nombre;
@@ -43,6 +49,7 @@ contract RifaNFT is ERC721URIStorage, Ownable {
         string memory descripcion
     ) ERC721(nombre, simbolo) {
         usdt = IERC20(_usdtAddress);
+        creadorDelContrato = msg.sender; // Establece al creador del contrato
         rifa = RifaInfo({
             nombre: nombre,
             simbolo: simbolo,
@@ -85,6 +92,72 @@ contract RifaNFT is ERC721URIStorage, Ownable {
             rifa.tokensMinteados = rifa.tokensMinteados.add(1);
             rifa.tokensRestantes = rifa.tokensRestantes.sub(1); // Actualizado el número de tokens restantes
         }
+    }
+
+    function comprarBoletaMetaTransaction(
+        uint256 tokenId,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) public {
+        bytes32 hash = keccak256(abi.encodePacked(tokenId, nonces[msg.sender]));
+        bytes32 hashWithPrefix = hash.toEthSignedMessageHash();
+
+        address signer = hashWithPrefix.recover(v, r, s);
+
+        require(signer == msg.sender, "Invalid signature");
+
+        nonces[msg.sender]++; // Incrementar el nonce para ese usuario
+
+        // Ejecute la función comprarBoleta
+        _comprarBoleta(tokenId, msg.sender);
+
+        emit comprarEvents(
+            msg.sender,
+            payable(msg.sender),
+            (rifa.saldoFinal * (100 - rifa.gananciaEmpresa)) / 1e8
+        );
+    }
+
+    function _comprarBoleta(uint256 tokenId, address buyer) internal {
+        // Agregados mensajes de error para los require
+        require(
+            tokenId <= rifa.maxBoletas,
+            "El tokenId supera el maximo de boletas permitido"
+        );
+        require(
+            tokenAvailable[tokenId],
+            "No existe o ya no esta disponible esa boleta"
+        );
+
+        uint256 amount = rifa.precio * 1e6; // Precio multiplicado para tener 6 decimales
+        require(usdt.balanceOf(buyer) >= amount, "No tienes suficientes USDT");
+
+        // Verificar si el usuario ha aprobado la transferencia
+        require(
+            usdt.allowance(buyer, address(this)) >= amount,
+            "Aprobacion de USDT insuficiente"
+        );
+
+        bool transferSuccess = usdt.transferFrom(buyer, address(this), amount);
+        require(transferSuccess, "Transferencia de USDT fallida");
+        //actualiza saldo final
+        rifa.saldoFinal = rifa.saldoFinal.add(amount);
+        //mapping de tokens vendidos
+        tokenVendido[tokenId] = true;
+        tokensVendidosArray.push(tokenId);
+
+        // Transferencia del NFT al comprador
+        _transfer(address(this), buyer, tokenId);
+        tokenAvailable[tokenId] = false; // Actualizar el estado del token a "no disponible"
+
+        rifa.tokensComprados = rifa.tokensComprados + 1; //variable tokens comprados
+
+        emit comprarEvents(
+            buyer,
+            payable(msg.sender),
+            (rifa.saldoFinal * (100 - rifa.gananciaEmpresa)) / 1e8
+        );
     }
 
     function comprarBoleta(uint256 tokenId) external {
@@ -130,7 +203,7 @@ contract RifaNFT is ERC721URIStorage, Ownable {
 
         emit comprarEvents(
             msg.sender,
-            tokenId,
+            payable(msg.sender),
             (rifa.saldoFinal * (100 - rifa.gananciaEmpresa)) / 1e8
         );
     }
@@ -219,8 +292,22 @@ contract RifaNFT is ERC721URIStorage, Ownable {
     }
 
     event comprarEvents(
-        address indexed buyer,
-        uint256 tokenId,
-        uint256 saldoFinal
+        address userAddress,
+        address payable relayerAddress,
+        uint256 saldo
     );
+
+    function transferirNFT(uint256 tokenId, address destinatario) external {
+        require(
+            msg.sender == creadorDelContrato,
+            "Solo el creador del contrato puede transferir NFTs"
+        );
+        require(
+            ownerOf(tokenId) == address(this),
+            "El NFT no pertenece al contrato de rifas"
+        );
+
+        _transfer(address(this), destinatario, tokenId);
+        tokenAvailable[tokenId] = false; // Marca la boleta como "no disponible"
+    }
 }
