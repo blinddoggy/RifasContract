@@ -19,6 +19,8 @@ contract RifaNFT is ERC721URIStorage, Ownable {
     uint256[] public tokensVendidosArray;
     mapping(address => uint256) public nonces;
     address public creadorDelContrato;
+    bool public compraBoletaHabilitada = true;
+
 
     struct RifaInfo {
         string nombre;
@@ -161,6 +163,9 @@ contract RifaNFT is ERC721URIStorage, Ownable {
     }
 
     function comprarBoleta(uint256 tokenId) external {
+
+        require(compraBoletaHabilitada, "La compra de boletas esta deshabilitada");
+        
         // Agregados mensajes de error para los require
         require(
             tokenId <= rifa.maxBoletas,
@@ -310,4 +315,10 @@ contract RifaNFT is ERC721URIStorage, Ownable {
         _transfer(address(this), destinatario, tokenId);
         tokenAvailable[tokenId] = false; // Marca la boleta como "no disponible"
     }
+
+    function deshabilitarCompraBoleta(bool deshabilitar) external onlyOwner {
+    require(deshabilitar == true, "El numero proporcionado no es 00");
+    compraBoletaHabilitada = false;
+}
+
 }
