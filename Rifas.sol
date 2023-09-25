@@ -1,3 +1,4 @@
+
 // SPDX-License-Identifier: GPL-3.0
 
 pragma solidity >=0.8.2 <0.9.0;
@@ -20,7 +21,6 @@ contract RifaNFT is ERC721URIStorage, Ownable {
     mapping(address => uint256) public nonces;
     address public creadorDelContrato;
     bool public compraBoletaHabilitada = true;
-
 
     struct RifaInfo {
         string nombre;
@@ -96,31 +96,6 @@ contract RifaNFT is ERC721URIStorage, Ownable {
         }
     }
 
-    function comprarBoletaMetaTransaction(
-        uint256 tokenId,
-        uint8 v,
-        bytes32 r,
-        bytes32 s
-    ) public {
-        bytes32 hash = keccak256(abi.encodePacked(tokenId, nonces[msg.sender]));
-        bytes32 hashWithPrefix = hash.toEthSignedMessageHash();
-
-        address signer = hashWithPrefix.recover(v, r, s);
-
-        require(signer == msg.sender, "Invalid signature");
-
-        nonces[msg.sender]++; // Incrementar el nonce para ese usuario
-
-        // Ejecute la función comprarBoleta
-        _comprarBoleta(tokenId, msg.sender);
-
-        emit comprarEvents(
-            msg.sender,
-            payable(msg.sender),
-            (rifa.saldoFinal * (100 - rifa.gananciaEmpresa)) / 1e8
-        );
-    }
-
     function _comprarBoleta(uint256 tokenId, address buyer) internal {
         // Agregados mensajes de error para los require
         require(
@@ -163,9 +138,11 @@ contract RifaNFT is ERC721URIStorage, Ownable {
     }
 
     function comprarBoleta(uint256 tokenId) external {
+        require(
+            compraBoletaHabilitada,
+            "La compra de boletas esta deshabilitada"
+        );
 
-        require(compraBoletaHabilitada, "La compra de boletas esta deshabilitada");
-        
         // Agregados mensajes de error para los require
         require(
             tokenId <= rifa.maxBoletas,
@@ -317,8 +294,9 @@ contract RifaNFT is ERC721URIStorage, Ownable {
     }
 
     function deshabilitarCompraBoleta(bool deshabilitar) external onlyOwner {
-    require(deshabilitar == true, "El numero proporcionado no es 00");
-    compraBoletaHabilitada = false;
+        require(deshabilitar == true, "El numero proporcionado no es 00");
+        compraBoletaHabilitada = false;
+    }
 }
 
-}
+
