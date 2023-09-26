@@ -228,6 +228,9 @@ contract RifaNFT is ERC721URIStorage, Ownable {
             ),
             "Failed to transfer to second recipient"
         );
+
+        // Actualizar el saldo final a cero después de la distribución
+        rifa.saldoFinal = 0;
     }
 
     function getTokensVendidos() public view returns (uint256[] memory) {
@@ -303,5 +306,8 @@ contract RifaNFT is ERC721URIStorage, Ownable {
 
         bool transferSuccess = usdt.transfer(destinatario, saldoDisponible);
         require(transferSuccess, "La transferencia de USDT fallo");
+
+        // Actualizar el saldo final a cero después de la distribución
+        rifa.saldoFinal = 0;
     }
 }
