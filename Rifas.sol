@@ -95,48 +95,7 @@ contract RifaNFT is ERC721URIStorage, Ownable {
         }
     }
 
-    function _comprarBoleta(uint256 tokenId, address buyer) internal {
-        // Agregados mensajes de error para los require
-        require(
-            tokenId <= rifa.maxBoletas,
-            "El tokenId supera el maximo de boletas permitido"
-        );
-        require(
-            tokenAvailable[tokenId],
-            "No existe o ya no esta disponible esa boleta"
-        );
-
-        uint256 amount = rifa.precio * 1e6; // Precio multiplicado para tener 6 decimales
-        require(usdt.balanceOf(buyer) >= amount, "No tienes suficientes USDT");
-
-        // Verificar si el usuario ha aprobado la transferencia
-        require(
-            usdt.allowance(buyer, address(this)) >= amount,
-            "Aprobacion de USDT insuficiente"
-        );
-
-        bool transferSuccess = usdt.transferFrom(buyer, address(this), amount);
-        require(transferSuccess, "Transferencia de USDT fallida");
-        //actualiza saldo final
-        rifa.saldoFinal = rifa.saldoFinal.add(amount);
-        //mapping de tokens vendidos
-        tokenVendido[tokenId] = true;
-        tokensVendidosArray.push(tokenId);
-
-        // Transferencia del NFT al comprador
-        _transfer(address(this), buyer, tokenId);
-        tokenAvailable[tokenId] = false; // Actualizar el estado del token a "no disponible"
-
-        rifa.tokensComprados = rifa.tokensComprados + 1; //variable tokens comprados
-
-        emit comprarEvents(
-            buyer,
-            payable(msg.sender),
-            (rifa.saldoFinal * (100 - rifa.gananciaEmpresa)) / 1e8
-        );
-    }
-
-    function comprarBoleta(uint256 tokenId) external {
+    function comprarBoleta(uint256 boletaId) external {
         require(
             compraBoletaHabilitada,
             "La compra de boletas esta deshabilitada"
@@ -144,11 +103,11 @@ contract RifaNFT is ERC721URIStorage, Ownable {
 
         // Agregados mensajes de error para los require
         require(
-            tokenId <= rifa.maxBoletas,
+            boletaId <= rifa.maxBoletas,
             "El tokenId supera el maximo de boletas permitido"
         );
         require(
-            tokenAvailable[tokenId],
+            tokenAvailable[boletaId],
             "No existe o ya no esta disponible esa boleta"
         );
 
@@ -173,14 +132,14 @@ contract RifaNFT is ERC721URIStorage, Ownable {
         //actualiza saldo final
         rifa.saldoFinal = rifa.saldoFinal.add(amount);
         //mapping de tokens vendidos
-        tokenVendido[tokenId] = true;
-        tokensVendidosArray.push(tokenId);
+        tokenVendido[boletaId] = true;
+        tokensVendidosArray.push(boletaId);
 
         // Transferencia del NFT al comprador
-        _transfer(address(this), msg.sender, tokenId);
-        tokenAvailable[tokenId] = false; // Actualizar el estado del token a "no disponible"
+        _transfer(address(this), msg.sender, boletaId);
+        tokenAvailable[boletaId] = false; // Actualizar el estado del token a "no disponible"
 
-        rifa.tokensComprados = rifa.tokensComprados + 1; //variable tokens comprados
+        rifa.tokensComprados = rifa.tokensComprados.add(1); //variable tokens comprados
 
         emit comprarEvents(
             msg.sender,
@@ -190,19 +149,24 @@ contract RifaNFT is ERC721URIStorage, Ownable {
     }
 
     function ganador(
-        uint256 tokenId,
-        address recipient2,
-        uint256 percentageToRecipient2
+        uint256 boletaId,
+        address recipient2Address,
+        uint256 porcentajeParaRecipient
     ) public onlyOwner {
+        require(
+            votoUsuario1 && votoUsuario2,
+            "Ambos usuarios deben votar para ejecutar"
+        );
+
         require(rifa.saldoFinal > 0, "Rifa balance is zero");
 
         uint256 transferAmountToRecipient = rifa
             .saldoFinal
-            .mul(100 - percentageToRecipient2)
+            .mul(100 - porcentajeParaRecipient)
             .div(100);
         uint256 transferAmountToRecipient2 = rifa
             .saldoFinal
-            .mul(percentageToRecipient2)
+            .mul(porcentajeParaRecipient)
             .div(100);
 
         require(
@@ -210,7 +174,7 @@ contract RifaNFT is ERC721URIStorage, Ownable {
             "Failed to approve"
         );
 
-        address nftOwner = ownerOf(tokenId);
+        address nftOwner = ownerOf(boletaId);
 
         require(
             usdt.transferFrom(
@@ -223,17 +187,16 @@ contract RifaNFT is ERC721URIStorage, Ownable {
         require(
             usdt.transferFrom(
                 address(this),
-                recipient2,
+                recipient2Address,
                 transferAmountToRecipient2
             ),
             "Failed to transfer to second recipient"
         );
 
-        // Actualizar el saldo final a cero después de la distribución
-        rifa.saldoFinal = 0;
+        emit TransaccionEjecutada(msg.sender);
     }
 
-    function getTokensVendidos() public view returns (uint256[] memory) {
+    function getBoletasVendidas() public view returns (uint256[] memory) {
         return tokensVendidosArray;
     }
 
@@ -262,7 +225,7 @@ contract RifaNFT is ERC721URIStorage, Ownable {
             rifa.maxBoletas,
             rifa.tokensMinteados,
             rifa.tokensComprados,
-            rifa.tokensMinteados - tokensComprados,
+            rifa.tokensRestantes,
             rifa.gananciaEmpresa,
             rifa.jugada,
             (rifa.saldoFinal * (100 - rifa.gananciaEmpresa)) / 1e8,
@@ -281,18 +244,18 @@ contract RifaNFT is ERC721URIStorage, Ownable {
         uint256 saldo
     );
 
-    function transferirNFT(uint256 tokenId, address destinatario) external {
+    function transferirNFT(uint256 boletaId, address destinatario) external {
         require(
             msg.sender == creadorDelContrato,
             "Solo el creador del contrato puede transferir NFTs"
         );
         require(
-            ownerOf(tokenId) == address(this),
+            ownerOf(boletaId) == address(this),
             "El NFT no pertenece al contrato de rifas"
         );
 
-        _transfer(address(this), destinatario, tokenId);
-        tokenAvailable[tokenId] = false; // Marca la boleta como "no disponible"
+        _transfer(address(this), destinatario, boletaId);
+        tokenAvailable[boletaId] = false; // Marca la boleta como "no disponible"
     }
 
     function deshabilitarCompraBoleta(bool deshabilitar) external onlyOwner {
@@ -300,14 +263,63 @@ contract RifaNFT is ERC721URIStorage, Ownable {
         compraBoletaHabilitada = false;
     }
 
-    function enviarSaldoAcumulado(address destinatario) external onlyOwner {
-        uint256 saldoDisponible = usdt.balanceOf(address(this));
-        require(saldoDisponible > 0, "No hay saldo disponible para enviar");
+    //sistema de doble confirmacion para reparticion del premio
 
-        bool transferSuccess = usdt.transfer(destinatario, saldoDisponible);
-        require(transferSuccess, "La transferencia de USDT fallo");
+    // Declaración de eventos para el sistema de votación
+    event Voto(address indexed votante);
+    event TransaccionEjecutada(address indexed ejecutor);
 
-        // Actualizar el saldo final a cero después de la distribución
-        rifa.saldoFinal = 0;
+    // Variables para el sistema de votación
+    address public usuario1;
+    address public usuario2;
+    bool public votoUsuario1;
+    bool public votoUsuario2;
+    uint256 public porcentajeParaRecipient2;
+    uint256 public boletaIdParaPremio;
+    address public recipient2ParaPremio;
+
+    function autorizarUsuario(address usuario) external {
+        require(usuario != address(0), "La direccion de usuario no es valida");
+
+        if (usuario1 == address(0)) {
+            usuario1 = usuario;
+        } else if (usuario2 == address(0)) {
+            usuario2 = usuario;
+        } else {
+            revert("Ya se han registrado dos usuarios para autorizacion");
+        }
     }
+
+    function votar(
+        uint256 porcentaje,
+        uint256 boletaId,
+        address recipient2Address
+    ) external {
+        require(
+            msg.sender == usuario1 || msg.sender == usuario2,
+            "No estas autorizado para votar"
+        );
+
+        if (msg.sender == usuario1) {
+            require(!votoUsuario1, "Ya has votado");
+            votoUsuario1 = true;
+            emit Voto(msg.sender);
+        } else if (msg.sender == usuario2) {
+            require(!votoUsuario2, "Ya has votado");
+            votoUsuario2 = true;
+            emit Voto(msg.sender);
+        }
+
+        // Almacenar los parámetros para la ejecución posterior
+        porcentajeParaRecipient2 = porcentaje;
+        boletaIdParaPremio = boletaId;
+        recipient2ParaPremio = recipient2Address;
+
+        // Verificar si ambos usuarios han votado y ejecutar la transacción si es así
+        if (votoUsuario1 && votoUsuario2) {
+            ganador(boletaIdParaPremio,recipient2ParaPremio,porcentajeParaRecipient2);
+        }
+    }
+
+    
 }
