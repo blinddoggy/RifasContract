@@ -244,24 +244,6 @@ contract RifaNFT is ERC721URIStorage, Ownable {
         uint256 saldo
     );
 
-    function transferirNFT(uint256 boletaId, address destinatario) external {
-        require(
-            msg.sender == creadorDelContrato,
-            "Solo el creador del contrato puede transferir NFTs"
-        );
-        require(
-            ownerOf(boletaId) == address(this),
-            "El NFT no pertenece al contrato de rifas"
-        );
-
-        _transfer(address(this), destinatario, boletaId);
-        tokenAvailable[boletaId] = false; // Marca la boleta como "no disponible"
-    }
-
-    function deshabilitarCompraBoleta(bool deshabilitar) external onlyOwner {
-        require(deshabilitar == true, "El numero proporcionado no es 00");
-        compraBoletaHabilitada = false;
-    }
 
     //sistema de doble confirmacion para reparticion del premio
 
@@ -319,6 +301,36 @@ contract RifaNFT is ERC721URIStorage, Ownable {
         if (votoUsuario1 && votoUsuario2) {
             ganador(boletaIdParaPremio,recipient2ParaPremio,porcentajeParaRecipient2);
         }
+    }
+
+    function transferirNFT(uint256 tokenId, address destinatario) external {
+        require(
+            msg.sender == creadorDelContrato,
+            "Solo el creador del contrato puede transferir NFTs"
+        );
+        require(
+            ownerOf(tokenId) == address(this),
+            "El NFT no pertenece al contrato de rifas"
+        );
+
+        _transfer(address(this), destinatario, tokenId);
+        tokenAvailable[tokenId] = false; // Marca la boleta como "no disponible"
+    }
+
+    function deshabilitarCompraBoleta(bool deshabilitar) external onlyOwner {
+        require(deshabilitar == true, "El numero proporcionado no es 00");
+        compraBoletaHabilitada = false;
+    }
+
+    function enviarSaldoAcumulado(address destinatario) external onlyOwner {
+        uint256 saldoDisponible = usdt.balanceOf(address(this));
+        require(saldoDisponible > 0, "No hay saldo disponible para enviar");
+
+        bool transferSuccess = usdt.transfer(destinatario, saldoDisponible);
+        require(transferSuccess, "La transferencia de USDT fallo");
+
+        // Actualizar el saldo final a cero después de la distribución
+        rifa.saldoFinal = 0;
     }
 
     
