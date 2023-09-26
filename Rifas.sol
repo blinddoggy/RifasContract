@@ -1,4 +1,3 @@
-
 // SPDX-License-Identifier: GPL-3.0
 
 pragma solidity >=0.8.2 <0.9.0;
@@ -297,6 +296,12 @@ contract RifaNFT is ERC721URIStorage, Ownable {
         require(deshabilitar == true, "El numero proporcionado no es 00");
         compraBoletaHabilitada = false;
     }
+
+    function enviarSaldoAcumulado(address destinatario) external onlyOwner {
+        uint256 saldoDisponible = usdt.balanceOf(address(this));
+        require(saldoDisponible > 0, "No hay saldo disponible para enviar");
+
+        bool transferSuccess = usdt.transfer(destinatario, saldoDisponible);
+        require(transferSuccess, "La transferencia de USDT fallo");
+    }
 }
-
-
